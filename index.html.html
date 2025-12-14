@@ -306,6 +306,38 @@
       border-color: rgba(255,255,255,0.06);
     }
 
+    .msg.editing {
+      padding: 0;
+      background: none;
+      border: none;
+    }
+
+    .editTextarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px 12px;
+      background: rgba(42,49,66,0.85);
+      border: 2px solid rgba(125,15,214,0.65);
+      border-radius: 14px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+      resize: vertical;
+      outline: none;
+    }
+
+    .editActions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .editActions button {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
     .msgActions {
       display: flex;
       gap: 4px;
@@ -553,6 +585,7 @@
     let chats = [];
     let activeChat = null;
     let sessionTotalCost = 0;
+    let editingMessageIndex = null;
 
     function generateId() {
       return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -676,6 +709,40 @@
         const wrapper = document.createElement('div');
         wrapper.className = `msgWrapper ${m.role}`;
 
+        // Check if this message is being edited
+        if (editingMessageIndex === i) {
+          const editDiv = document.createElement('div');
+          editDiv.className = 'msg editing';
+          
+          const textarea = document.createElement('textarea');
+          textarea.className = 'editTextarea';
+          textarea.value = m.content;
+          
+          const actionsDiv = document.createElement('div');
+          actionsDiv.className = 'editActions';
+          
+          const saveBtn = document.createElement('button');
+          saveBtn.textContent = 'Save';
+          saveBtn.className = 'primary';
+          saveBtn.onclick = () => saveEdit(i, textarea.value);
+          
+          const cancelBtn = document.createElement('button');
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.onclick = () => cancelEdit();
+          
+          actionsDiv.appendChild(cancelBtn);
+          actionsDiv.appendChild(saveBtn);
+          
+          editDiv.appendChild(textarea);
+          wrapper.appendChild(editDiv);
+          wrapper.appendChild(actionsDiv);
+          els.chat.appendChild(wrapper);
+          
+          // Focus the textarea
+          setTimeout(() => textarea.focus(), 0);
+          continue;
+        }
+
         const msg = document.createElement('div');
         msg.className = `msg ${m.role}`;
         msg.textContent = m.content;
@@ -693,14 +760,14 @@
         };
         actions.appendChild(copyBtn);
 
-        if (m.role === 'user') {
-          const editBtn = document.createElement('button');
-          editBtn.className = 'msgAction';
-          editBtn.textContent = 'Edit';
-          editBtn.onclick = () => editMessage(i);
-          actions.appendChild(editBtn);
-        }
+        // Edit button for BOTH user and assistant messages
+        const editBtn = document.createElement('button');
+        editBtn.className = 'msgAction';
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = () => startEdit(i);
+        actions.appendChild(editBtn);
 
+        // Regenerate button ONLY on the last assistant message
         if (m.role === 'assistant' && i === activeChat.messages.length - 1) {
           const regenBtn = document.createElement('button');
           regenBtn.className = 'msgAction';
@@ -723,22 +790,45 @@
       els.chat.scrollTop = els.chat.scrollHeight;
     }
 
-    function editMessage(index) {
-      const msg = activeChat.messages[index];
-      if (msg.role !== 'user') return;
-
-      const newContent = prompt('Edit message:', msg.content);
-      if (!newContent || newContent === msg.content) return;
-
-      // Remove everything after this message
-      activeChat.messages = activeChat.messages.slice(0, index + 1);
-      activeChat.messages[index].content = newContent;
-      
-      saveChats();
+    function startEdit(index) {
+      editingMessageIndex = index;
       renderChat();
+    }
+
+    function cancelEdit() {
+      editingMessageIndex = null;
+      renderChat();
+    }
+
+    function saveEdit(index, newContent) {
+      if (!newContent.trim()) {
+        cancelEdit();
+        return;
+      }
+
+      const msg = activeChat.messages[index];
+      const oldContent = msg.content;
       
-      // Auto-regenerate response
-      sendMessage(newContent, true);
+      if (newContent === oldContent) {
+        cancelEdit();
+        return;
+      }
+
+      msg.content = newContent;
+      
+      // If editing a user message, remove everything after it and regenerate
+      if (msg.role === 'user') {
+        activeChat.messages = activeChat.messages.slice(0, index + 1);
+        saveChats();
+        editingMessageIndex = null;
+        renderChat();
+        sendMessage(newContent, true);
+      } else {
+        // Just save the edit for assistant messages
+        saveChats();
+        editingMessageIndex = null;
+        renderChat();
+      }
     }
 
     function deleteMessage(index) {
@@ -752,6 +842,11 @@
       
       // Remove last assistant message
       if (activeChat.messages[activeChat.messages.length - 1].role === 'assistant') {
+        activeChat.messages.pop();
+      }
+      
+      // Also remove the meta message if there is one
+      if (activeChat.messages[activeChat.messages.length - 1]?.role === 'meta') {
         activeChat.messages.pop();
       }
       
