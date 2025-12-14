@@ -305,8 +305,8 @@
     <div class="status">
       <div class="pill" id="statusLeft">idle</div>
       <div class="costTracker">
-        <div class="pill warn" id="sessionCost">Session: $0.00</div>
-        <div class="pill" id="lastCost">Last: $0.00</div>
+        <div class="pill warn" id="sessionCost">Session: $0.0000</div>
+        <div class="pill" id="lastCost">Last: $0.0000</div>
         <div class="pill" id="tokenCount">Tokens: 0</div>
       </div>
     </div>
@@ -326,15 +326,12 @@
         'o3-mini': { input: 1.10, output: 4.40 }
       },
       gemini: {
-      	'gemini-3-pro-preview': { input: 2.00, output: 12.00 },
-	'gemini-2.5-pro': [1.25, 10.00], 
-	'gemini-2.5-flash': [0.30, 2.50],
-        'gemini-2.0-flash-exp': [0.00, 0.00], // Free during preview
-        'gemini-exp-1206': [0.00, 0.00],
-        'gemini-2.0-flash-thinking-exp-1219': [0.00, 0.00],
-        'gemini-1.5-pro': [1.25, 5.00],
-        'gemini-1.5-flash': [0.075, 0.30],
-        'gemini-1.5-flash-8b': [0.0375, 0.15]
+        'gemini-2.0-flash-exp': { input: 0.00, output: 0.00 }, // Free tier
+        'gemini-exp-1206': { input: 0.00, output: 0.00 },
+        'gemini-2.0-flash-thinking-exp-1219': { input: 0.00, output: 0.00 },
+        'gemini-1.5-pro': { input: 1.25, output: 5.00 },
+        'gemini-1.5-flash': { input: 0.075, output: 0.30 },
+        'gemini-1.5-flash-8b': { input: 0.0375, output: 0.15 }
       }
     };
 
@@ -350,9 +347,6 @@
         'o3-mini'
       ],
       gemini: [
-     	'gemini-3-pro-preview',
-	'gemini-2.5-pro',
-	'gemini-2.5-flash',
         'gemini-2.0-flash-exp',
         'gemini-exp-1206',
         'gemini-2.0-flash-thinking-exp-1219',
@@ -394,7 +388,7 @@
       sessionCost: 'llmui_session_cost'
     };
 
-    let sessionTotalCost = parseFloat(localStorage.getItem(LS.sessionCost) || '0');
+    let sessionTotalCost = 0;
 
     function maskKey(k) {
       if (!k) return '';
@@ -408,23 +402,41 @@
     }
 
     function updateCostDisplay(lastCost = null, tokens = null) {
-      els.sessionCost.textContent = `Session: $${sessionTotalCost.toFixed(4)}`;
+      // Force valid numbers with fallback to 0
+      const validSessionCost = isNaN(sessionTotalCost) ? 0 : sessionTotalCost;
+      sessionTotalCost = validSessionCost;
+      
+      els.sessionCost.textContent = `Session: $${validSessionCost.toFixed(4)}`;
+      
       if (lastCost !== null) {
-        els.lastCost.textContent = `Last: $${lastCost.toFixed(4)}`;
+        const validLastCost = isNaN(lastCost) ? 0 : lastCost;
+        els.lastCost.textContent = `Last: $${validLastCost.toFixed(4)}`;
       }
+      
       if (tokens !== null) {
-        els.tokenCount.textContent = `Tokens: ${tokens.toLocaleString()}`;
+        const validTokens = isNaN(tokens) ? 0 : tokens;
+        els.tokenCount.textContent = `Tokens: ${validTokens.toLocaleString()}`;
       }
-      localStorage.setItem(LS.sessionCost, sessionTotalCost.toString());
+      
+      localStorage.setItem(LS.sessionCost, validSessionCost.toString());
     }
 
     function calculateCost(provider, model, inputTokens, outputTokens) {
-      const pricing = PRICING[provider]?.[model];
-      if (!pricing) return 0;
+      // Ensure we have valid numbers
+      const validInput = isNaN(inputTokens) ? 0 : inputTokens;
+      const validOutput = isNaN(outputTokens) ? 0 : outputTokens;
       
-      const inputCost = (inputTokens / 1000000) * pricing.input;
-      const outputCost = (outputTokens / 1000000) * pricing.output;
-      return inputCost + outputCost;
+      const pricing = PRICING[provider]?.[model];
+      if (!pricing) {
+        console.warn(`No pricing data for ${provider}/${model}`);
+        return 0;
+      }
+      
+      const inputCost = (validInput / 1000000) * pricing.input;
+      const outputCost = (validOutput / 1000000) * pricing.output;
+      const total = inputCost + outputCost;
+      
+      return isNaN(total) ? 0 : total;
     }
 
     function addMsg(role, text) {
@@ -469,6 +481,10 @@
       els.modelHint.textContent = effectiveModel();
       els.providerHint.textContent = provider;
 
+      // Load session cost with validation
+      const savedCost = localStorage.getItem(LS.sessionCost);
+      const parsedCost = parseFloat(savedCost);
+      sessionTotalCost = isNaN(parsedCost) ? 0 : parsedCost;
       updateCostDisplay();
 
       const saved = localStorage.getItem(LS.messages);
@@ -509,6 +525,7 @@
 
     function resetCost() {
       sessionTotalCost = 0;
+      localStorage.setItem(LS.sessionCost, '0');
       updateCostDisplay(0, 0);
       addMsg('meta', 'Cost tracker reset to $0.00');
     }
@@ -567,14 +584,21 @@
         messages.push({ role: 'assistant', content: response || '' });
         persistMessages();
 
-        // Calculate and update cost
+        // Calculate and update cost with validation
         if (usage) {
-          const cost = calculateCost(provider, model, usage.input, usage.output);
+          const inputTokens = usage.input || 0;
+          const outputTokens = usage.output || 0;
+          const cost = calculateCost(provider, model, inputTokens, outputTokens);
+          
           sessionTotalCost += cost;
-          const totalTokens = usage.input + usage.output;
+          const totalTokens = inputTokens + outputTokens;
           updateCostDisplay(cost, totalTokens);
           
-          addMsg('meta', `${usage.input.toLocaleString()} in + ${usage.output.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
+          if (cost > 0 || totalTokens > 0) {
+            addMsg('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
+          } else {
+            addMsg('meta', `${totalTokens.toLocaleString()} tokens (free or no pricing data)`);
+          }
         }
 
         setStatus('done', true);
@@ -683,4 +707,3 @@
   </script>
 </body>
 </html>
-
