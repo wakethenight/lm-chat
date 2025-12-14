@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Multi-Provider LLM UI (with Cost Tracking)</title>
+  <title>Multi-Provider LLM UI</title>
   <style>
     :root {
       --bg: #0f1115;
@@ -16,7 +16,7 @@
       --accent2: #4f7cff;
       --danger: #ff4d4d;
       --ok: #33d17a;
-      --money: #ffd700;
+      --warning: #ffa500;
       --bubbleUser: #7d0fd6;
       --bubbleAI: #2a3142;
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -180,17 +180,6 @@
       border-color: rgba(255,255,255,0.06);
     }
 
-    .msg.cost {
-      align-self: center;
-      max-width: 100%;
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--money);
-      background: rgba(255,215,0,0.08);
-      border-color: rgba(255,215,0,0.2);
-      padding: 6px 10px;
-    }
-
     .composer {
       border-top: 1px solid var(--border);
       padding: 12px;
@@ -217,6 +206,7 @@
     .status {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 10px;
       padding: 8px 12px;
       border-top: 1px dashed rgba(255,255,255,0.08);
@@ -224,6 +214,7 @@
       font-family: var(--mono);
       font-size: 12px;
       color: var(--muted);
+      flex-wrap: wrap;
     }
 
     .pill {
@@ -234,15 +225,17 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 55vw;
     }
 
-    .pill.ok { border-color: rgba(51,209,122,0.25); }
-    .pill.bad { border-color: rgba(255,77,77,0.25); }
-    .pill.money { 
-      border-color: rgba(255,215,0,0.35); 
-      color: var(--money);
-      font-weight: 700;
+    .pill.ok { border-color: rgba(51,209,122,0.25); color: var(--ok); }
+    .pill.bad { border-color: rgba(255,77,77,0.25); color: var(--danger); }
+    .pill.warn { border-color: rgba(255,165,0,0.25); color: var(--warning); }
+
+    .costTracker {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     @media (max-width: 768px) {
@@ -292,7 +285,7 @@
     </div>
 
     <div class="btnRow">
-      <button id="resetCost">Reset Cost ($<span id="totalCostBtn">0.0000</span>)</button>
+      <button id="resetCost">Reset Cost</button>
       <button id="clearChat">Clear Chat</button>
       <button id="send" class="primary">Send</button>
     </div>
@@ -300,8 +293,8 @@
 
   <main>
     <div id="chat">
-      <div class="msg assistant">Welcome! Cost tracking is enabled. Your running total appears in the status bar below.</div>
-      <div class="msg meta">Prices: OpenAI & Gemini calculated per token. Session total persists until you click "Reset Cost".</div>
+      <div class="msg assistant">Welcome! Select your provider, paste your API key, pick a model, and start chatting. Cost tracking is enabled.</div>
+      <div class="msg meta">Your keys are stored locally in your browser. Token usage and costs are calculated in real-time.</div>
     </div>
 
     <div class="composer">
@@ -311,26 +304,29 @@
 
     <div class="status">
       <div class="pill" id="statusLeft">idle</div>
-      <div class="pill money" id="statusCost">$0.0000</div>
-      <div class="pill" id="statusRight"></div>
+      <div class="costTracker">
+        <div class="pill warn" id="sessionCost">Session: $0.00</div>
+        <div class="pill" id="lastCost">Last: $0.00</div>
+        <div class="pill" id="tokenCount">Tokens: 0</div>
+      </div>
     </div>
   </main>
 
   <script>
-    // Pricing per 1M tokens (input, output)
+    // Pricing per 1M tokens (as of early 2025, adjust as needed)
     const PRICING = {
       openai: {
-        'gpt-4.1': [2.50, 10.00],
-        'gpt-4.1-mini': [0.40, 1.60],
-        'gpt-4.1-nano': [0.10, 0.40],
-        'gpt-4o': [2.50, 10.00],
-        'gpt-4o-mini': [0.15, 0.60],
-        'o1': [15.00, 60.00],
-        'o1-mini': [3.00, 12.00],
-        'o3-mini': [1.10, 4.40]
+        'gpt-4.1': { input: 15.00, output: 60.00 },
+        'gpt-4.1-mini': { input: 1.50, output: 6.00 },
+        'gpt-4.1-nano': { input: 0.40, output: 1.60 },
+        'gpt-4o': { input: 2.50, output: 10.00 },
+        'gpt-4o-mini': { input: 0.15, output: 0.60 },
+        'o1': { input: 15.00, output: 60.00 },
+        'o1-mini': { input: 3.00, output: 12.00 },
+        'o3-mini': { input: 1.10, output: 4.40 }
       },
       gemini: {
-	'gemini-3-pro-preview': [2.00, 12.00],
+      	'gemini-3-pro-preview': [2.00, 12.00],
 	'gemini-2.5-pro': [1.25, 10.00], 
 	'gemini-2.5-flash': [0.30, 2.50],
         'gemini-2.0-flash-exp': [0.00, 0.00], // Free during preview
@@ -354,7 +350,7 @@
         'o3-mini'
       ],
       gemini: [
-	'gemini-3-pro-preview',
+     	'gemini-3-pro-preview',
 	'gemini-2.5-pro',
 	'gemini-2.5-flash',
         'gemini-2.0-flash-exp',
@@ -371,19 +367,19 @@
       apiKey: document.getElementById('apiKey'),
       model: document.getElementById('model'),
       customModel: document.getElementById('customModel'),
-      clearChat: document.getElementById('clearChat'),
       resetCost: document.getElementById('resetCost'),
+      clearChat: document.getElementById('clearChat'),
       send: document.getElementById('send'),
       send2: document.getElementById('send2'),
       input: document.getElementById('input'),
       chat: document.getElementById('chat'),
       statusLeft: document.getElementById('statusLeft'),
-      statusRight: document.getElementById('statusRight'),
-      statusCost: document.getElementById('statusCost'),
-      totalCostBtn: document.getElementById('totalCostBtn'),
       keyHint: document.getElementById('keyHint'),
       modelHint: document.getElementById('modelHint'),
       providerHint: document.getElementById('providerHint'),
+      sessionCost: document.getElementById('sessionCost'),
+      lastCost: document.getElementById('lastCost'),
+      tokenCount: document.getElementById('tokenCount')
     };
 
     const LS = {
@@ -395,10 +391,10 @@
       model: 'llmui_model_v2',
       customModel: 'llmui_custom_model',
       messages: 'llmui_messages_v2',
-      totalCost: 'llmui_total_cost'
+      sessionCost: 'llmui_session_cost'
     };
 
-    let totalSessionCost = parseFloat(localStorage.getItem(LS.totalCost) || '0');
+    let sessionTotalCost = parseFloat(localStorage.getItem(LS.sessionCost) || '0');
 
     function maskKey(k) {
       if (!k) return '';
@@ -406,18 +402,29 @@
       return `${k.slice(0, 3)}…${k.slice(-4)}`;
     }
 
-    function setStatus(left, right, ok = true) {
+    function setStatus(left, ok = true) {
       els.statusLeft.textContent = left || '';
-      els.statusRight.textContent = right || '';
       els.statusLeft.className = `pill ${ok ? 'ok' : 'bad'}`;
-      els.statusRight.className = `pill ${ok ? 'ok' : 'bad'}`;
     }
 
-    function updateCostDisplay() {
-      const formatted = `$${totalSessionCost.toFixed(4)}`;
-      els.statusCost.textContent = formatted;
-      els.totalCostBtn.textContent = totalSessionCost.toFixed(4);
-      localStorage.setItem(LS.totalCost, totalSessionCost.toString());
+    function updateCostDisplay(lastCost = null, tokens = null) {
+      els.sessionCost.textContent = `Session: $${sessionTotalCost.toFixed(4)}`;
+      if (lastCost !== null) {
+        els.lastCost.textContent = `Last: $${lastCost.toFixed(4)}`;
+      }
+      if (tokens !== null) {
+        els.tokenCount.textContent = `Tokens: ${tokens.toLocaleString()}`;
+      }
+      localStorage.setItem(LS.sessionCost, sessionTotalCost.toString());
+    }
+
+    function calculateCost(provider, model, inputTokens, outputTokens) {
+      const pricing = PRICING[provider]?.[model];
+      if (!pricing) return 0;
+      
+      const inputCost = (inputTokens / 1000000) * pricing.input;
+      const outputCost = (outputTokens / 1000000) * pricing.output;
+      return inputCost + outputCost;
     }
 
     function addMsg(role, text) {
@@ -494,16 +501,16 @@
 
     function clearChat() {
       els.chat.innerHTML = '';
-      addMsg('assistant', 'Chat cleared. Cost counter still running.');
+      addMsg('assistant', 'Chat cleared. Ready when you are.');
       localStorage.removeItem(LS.messages);
       messages = [{ role: 'system', content: 'You are a helpful assistant.' }];
-      setStatus('idle', '', true);
+      setStatus('idle', true);
     }
 
     function resetCost() {
-      totalSessionCost = 0;
-      updateCostDisplay();
-      addMsg('meta', 'Cost counter reset to $0.0000');
+      sessionTotalCost = 0;
+      updateCostDisplay(0, 0);
+      addMsg('meta', 'Cost tracker reset to $0.00');
     }
 
     function effectiveModel() {
@@ -518,15 +525,6 @@
       localStorage.setItem(LS.messages, JSON.stringify({ provider, messages: toSave }));
     }
 
-    function calculateCost(provider, model, inputTokens, outputTokens) {
-      const pricing = PRICING[provider]?.[model];
-      if (!pricing) return 0;
-      
-      const [inputPrice, outputPrice] = pricing;
-      const cost = (inputTokens / 1_000_000 * inputPrice) + (outputTokens / 1_000_000 * outputPrice);
-      return cost;
-    }
-
     async function sendMessage() {
       const provider = els.provider.value;
       const apiKey = els.apiKey.value.trim();
@@ -535,11 +533,11 @@
 
       if (!text) return;
       if (!apiKey) {
-        setStatus('missing api key', 'paste your key first', false);
+        setStatus('missing api key', false);
         return;
       }
       if (!model) {
-        setStatus('missing model', 'select or enter a model', false);
+        setStatus('missing model', false);
         return;
       }
 
@@ -550,7 +548,7 @@
       els.input.value = '';
       els.send.disabled = true;
       els.send2.disabled = true;
-      setStatus('thinking…', `${provider}/${model}`, true);
+      setStatus('thinking…', true);
 
       try {
         let response, usage;
@@ -569,7 +567,119 @@
         messages.push({ role: 'assistant', content: response || '' });
         persistMessages();
 
-        // Calculate and display cost
+        // Calculate and update cost
         if (usage) {
           const cost = calculateCost(provider, model, usage.input, usage.output);
+          sessionTotalCost += cost;
+          const totalTokens = usage.input + usage.output;
+          updateCostDisplay(cost, totalTokens);
           
+          addMsg('meta', `${usage.input.toLocaleString()} in + ${usage.output.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
+        }
+
+        setStatus('done', true);
+      } catch (e) {
+        addMsg('assistant', `Error: ${e.message || String(e)}`);
+        setStatus('error', false);
+      } finally {
+        els.send.disabled = false;
+        els.send2.disabled = false;
+      }
+    }
+
+    async function sendOpenAI(apiKey, model, messages) {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({ model, messages })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error((data?.error?.message) || `HTTP ${res.status}`);
+      }
+
+      return {
+        content: data?.choices?.[0]?.message?.content ?? '',
+        usage: {
+          input: data?.usage?.prompt_tokens || 0,
+          output: data?.usage?.completion_tokens || 0
+        }
+      };
+    }
+
+    async function sendGemini(apiKey, model, messages) {
+      const systemMsg = messages.find(m => m.role === 'system');
+      const chatMsgs = messages.filter(m => m.role !== 'system');
+
+      const contents = chatMsgs.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      const body = {
+        contents,
+        generationConfig: { maxOutputTokens: 8192 }
+      };
+
+      if (systemMsg) {
+        body.systemInstruction = {
+          parts: [{ text: systemMsg.content }]
+        };
+      }
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error((data?.error?.message) || `HTTP ${res.status}`);
+      }
+
+      return {
+        content: data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '',
+        usage: {
+          input: data?.usageMetadata?.promptTokenCount || 0,
+          output: data?.usageMetadata?.candidatesTokenCount || 0
+        }
+      };
+    }
+
+    els.provider.addEventListener('change', () => {
+      const provider = els.provider.value;
+      const savedKey = localStorage.getItem(LS.keys[provider]) || '';
+      els.apiKey.value = savedKey;
+      populateModels();
+      saveState();
+      
+      messages = [{ role: 'system', content: 'You are a helpful assistant.' }];
+      localStorage.removeItem(LS.messages);
+    });
+
+    els.apiKey.addEventListener('input', saveState);
+    els.model.addEventListener('change', saveState);
+    els.customModel.addEventListener('input', saveState);
+
+    els.resetCost.addEventListener('click', resetCost);
+    els.clearChat.addEventListener('click', clearChat);
+    els.send.addEventListener('click', sendMessage);
+    els.send2.addEventListener('click', sendMessage);
+
+    els.input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    loadState();
+    setStatus('idle', true);
+  </script>
+</body>
+</html>
