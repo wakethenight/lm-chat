@@ -28,19 +28,132 @@
       margin: 0;
       height: 100vh;
       display: flex;
-      flex-direction: column;
-      background: radial-gradient(1200px 800px at 20% 0%, rgba(125,15,214,0.18), transparent 55%),
-                  radial-gradient(900px 600px at 100% 10%, rgba(79,124,255,0.14), transparent 60%),
-                  var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: var(--sans);
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 260px;
+      background: linear-gradient(180deg, rgba(21,25,34,0.98), rgba(16,19,26,0.98));
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s;
+    }
+
+    #sidebar.hidden {
+      transform: translateX(-100%);
+    }
+
+    .sidebarHeader {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .sidebarHeader button {
+      flex: 1;
+      padding: 10px;
+      background: linear-gradient(135deg, rgba(125,15,214,0.95), rgba(79,124,255,0.75));
+      border: 1px solid rgba(125,15,214,0.45);
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    #chatList {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .chatItem {
+      padding: 10px 12px;
+      background: rgba(10,12,18,0.5);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .chatItem:hover {
+      background: rgba(125,15,214,0.15);
+      border-color: rgba(125,15,214,0.4);
+    }
+
+    .chatItem.active {
+      background: rgba(125,15,214,0.25);
+      border-color: rgba(125,15,214,0.6);
+    }
+
+    .chatTitle {
+      flex: 1;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chatDelete {
+      background: none;
+      border: none;
+      color: var(--danger);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 16px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .chatItem:hover .chatDelete {
+      opacity: 1;
+    }
+
+    .chatDelete:hover {
+      background: rgba(255,77,77,0.2);
+    }
+
+    /* Main Content */
+    #mainContent {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      position: relative;
+    }
+
+    #toggleSidebar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      background: rgba(21,25,34,0.95);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text);
     }
 
     header {
       display: flex;
       flex-direction: column;
       gap: 12px;
-      padding: 12px;
+      padding: 12px 12px 12px 60px;
       border-bottom: 1px solid var(--border);
       background: linear-gradient(180deg, rgba(21,25,34,0.95), rgba(16,19,26,0.95));
       backdrop-filter: blur(8px);
@@ -48,7 +161,7 @@
 
     .row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 10px;
     }
 
@@ -88,7 +201,7 @@
 
     input[type="password"], input[type="text"], select {
       width: 100%;
-      padding: 10px 10px;
+      padding: 10px;
       border-radius: 10px;
       border: 1px solid var(--border);
       background: rgba(10,12,18,0.75);
@@ -146,25 +259,38 @@
       gap: 10px;
     }
 
-    .msg {
+    .msgWrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
       max-width: 78ch;
+    }
+
+    .msgWrapper.user {
+      align-self: flex-end;
+    }
+
+    .msgWrapper.assistant {
+      align-self: flex-start;
+    }
+
+    .msg {
       padding: 10px 12px;
       border-radius: 14px;
       border: 1px solid rgba(255,255,255,0.06);
       line-height: 1.45;
       white-space: pre-wrap;
       word-break: break-word;
+      position: relative;
     }
 
     .msg.user {
-      align-self: flex-end;
       background: rgba(125,15,214,0.9);
       border-color: rgba(125,15,214,0.25);
       border-bottom-right-radius: 6px;
     }
 
     .msg.assistant {
-      align-self: flex-start;
       background: rgba(42,49,66,0.65);
       border-color: rgba(42,49,66,0.85);
       border-bottom-left-radius: 6px;
@@ -178,6 +304,36 @@
       color: var(--muted);
       background: rgba(10,12,18,0.45);
       border-color: rgba(255,255,255,0.06);
+    }
+
+    .msgActions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .msgWrapper:hover .msgActions {
+      opacity: 1;
+    }
+
+    .msgWrapper.user .msgActions {
+      justify-content: flex-end;
+    }
+
+    .msgAction {
+      background: rgba(10,12,18,0.9);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .msgAction:hover {
+      background: rgba(125,15,214,0.3);
+      color: var(--text);
     }
 
     .composer {
@@ -239,81 +395,90 @@
     }
 
     @media (max-width: 768px) {
+      #sidebar {
+        position: absolute;
+        z-index: 100;
+        height: 100%;
+      }
       .row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="row">
-      <div class="field">
-        <div class="labelRow">
-          <label>Provider</label>
-          <span class="hint" id="providerHint"></span>
+  <aside id="sidebar">
+    <div class="sidebarHeader">
+      <button id="newChat">+ New Chat</button>
+    </div>
+    <div id="chatList"></div>
+  </aside>
+
+  <div id="mainContent">
+    <button id="toggleSidebar">☰</button>
+
+    <header>
+      <div class="row">
+        <div class="field">
+          <div class="labelRow">
+            <label>Provider</label>
+            <span class="hint" id="providerHint"></span>
+          </div>
+          <select id="provider">
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Google (Gemini)</option>
+          </select>
         </div>
-        <select id="provider">
-          <option value="openai">OpenAI</option>
-          <option value="gemini">Google (Gemini)</option>
-        </select>
-      </div>
 
-      <div class="field">
-        <div class="labelRow">
-          <label for="apiKey">API Key</label>
-          <span class="hint" id="keyHint"></span>
+        <div class="field">
+          <div class="labelRow">
+            <label for="apiKey">API Key</label>
+            <span class="hint" id="keyHint"></span>
+          </div>
+          <input id="apiKey" type="password" placeholder="Paste your key here..." autocomplete="off" />
         </div>
-        <input id="apiKey" type="password" placeholder="Paste your key here..." autocomplete="off" />
-      </div>
 
-      <div class="field">
-        <div class="labelRow">
-          <label for="model">Model</label>
-          <span class="hint" id="modelHint"></span>
+        <div class="field">
+          <div class="labelRow">
+            <label for="model">Model</label>
+            <span class="hint" id="modelHint"></span>
+          </div>
+          <select id="model"></select>
         </div>
-        <select id="model">
-          <!-- Populated dynamically based on provider -->
-        </select>
-      </div>
 
-      <div class="field">
-        <div class="labelRow">
-          <label for="customModel">Custom model</label>
-          <span class="hint">optional override</span>
+        <div class="field">
+          <div class="labelRow">
+            <label for="customModel">Custom model</label>
+            <span class="hint">optional override</span>
+          </div>
+          <input id="customModel" type="text" placeholder="e.g. gpt-4.1" />
         </div>
-        <input id="customModel" type="text" placeholder="e.g. gpt-4.1 or fine-tune" />
       </div>
-    </div>
 
-    <div class="btnRow">
-      <button id="resetCost">Reset Cost</button>
-      <button id="clearChat">Clear Chat</button>
-      <button id="send" class="primary">Send</button>
-    </div>
-  </header>
-
-  <main>
-    <div id="chat">
-      <div class="msg assistant">Welcome! Select your provider, paste your API key, pick a model, and start chatting. Cost tracking is enabled.</div>
-      <div class="msg meta">Your keys are stored locally in your browser. Token usage and costs are calculated in real-time.</div>
-    </div>
-
-    <div class="composer">
-      <textarea id="input" placeholder="Type here. Enter = send, Shift+Enter = newline."></textarea>
-      <button id="send2" class="primary">Send</button>
-    </div>
-
-    <div class="status">
-      <div class="pill" id="statusLeft">idle</div>
-      <div class="costTracker">
-        <div class="pill warn" id="sessionCost">Session: $0.0000</div>
-        <div class="pill" id="lastCost">Last: $0.0000</div>
-        <div class="pill" id="tokenCount">Tokens: 0</div>
+      <div class="btnRow">
+        <button id="resetCost">Reset Cost</button>
+        <button id="send" class="primary">Send</button>
       </div>
-    </div>
-  </main>
+    </header>
+
+    <main>
+      <div id="chat"></div>
+
+      <div class="composer">
+        <textarea id="input" placeholder="Type here. Enter = send, Shift+Enter = newline."></textarea>
+        <button id="send2" class="primary">Send</button>
+      </div>
+
+      <div class="status">
+        <div class="pill" id="statusLeft">idle</div>
+        <div class="costTracker">
+          <div class="pill warn" id="sessionCost">Session: $0.0000</div>
+          <div class="pill" id="lastCost">Last: $0.0000</div>
+          <div class="pill" id="tokenCount">Tokens: 0</div>
+        </div>
+      </div>
+    </main>
+  </div>
 
   <script>
-    // Pricing per 1M tokens (as of early 2025, adjust as needed)
     const PRICING = {
       openai: {
         'gpt-4.1': { input: 15.00, output: 60.00 },
@@ -326,9 +491,9 @@
         'o3-mini': { input: 1.10, output: 4.40 }
       },
       gemini: {
-        'gemini-3-pro-preview': { input: 2.00, output: 12.00 },
-	      'gemini-2.5-pro': { input: 1.25, output: 10.00 }, 
-	      'gemini-2.5-flash': { input: 0.30, output: 2.50 },
+        'gemini-3-pro-preview': [2.00, 12.00],
+	'gemini-2.5-pro': [1.25, 10.00], 
+	'gemini-2.5-flash': [0.30, 2.50],
         'gemini-2.0-flash-exp': [0.00, 0.00], // Free during preview
         'gemini-exp-1206': [0.00, 0.00],
         'gemini-2.0-flash-thinking-exp-1219': [0.00, 0.00],
@@ -340,18 +505,8 @@
     };
 
     const PROVIDER_MODELS = {
-      openai: [
-        'gpt-4.1',
-        'gpt-4.1-mini',
-        'gpt-4.1-nano',
-        'gpt-4o',
-        'gpt-4o-mini',
-        'o1',
-        'o1-mini',
-        'o3-mini'
-      ],
-      gemini: [
-        'gemini-3-pro-preview',
+      openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini'],
+      gemini: [   'gemini-3-pro-preview',
 	      'gemini-2.5-pro',
 	      'gemini-2.5-flash',
         'gemini-2.0-flash-exp',
@@ -359,17 +514,19 @@
         'gemini-2.0-flash-thinking-exp-1219',
         'gemini-1.5-pro',
         'gemini-1.5-flash',
-        'gemini-1.5-flash-8b'
-      ]
+        'gemini-1.5-flash-8b']
     };
 
     const els = {
+      sidebar: document.getElementById('sidebar'),
+      toggleSidebar: document.getElementById('toggleSidebar'),
+      newChat: document.getElementById('newChat'),
+      chatList: document.getElementById('chatList'),
       provider: document.getElementById('provider'),
       apiKey: document.getElementById('apiKey'),
       model: document.getElementById('model'),
       customModel: document.getElementById('customModel'),
       resetCost: document.getElementById('resetCost'),
-      clearChat: document.getElementById('clearChat'),
       send: document.getElementById('send'),
       send2: document.getElementById('send2'),
       input: document.getElementById('input'),
@@ -385,17 +542,236 @@
 
     const LS = {
       provider: 'llmui_provider',
-      keys: {
-        openai: 'llmui_openai_key',
-        gemini: 'llmui_gemini_key'
-      },
+      keys: { openai: 'llmui_openai_key', gemini: 'llmui_gemini_key' },
       model: 'llmui_model_v2',
       customModel: 'llmui_custom_model',
-      messages: 'llmui_messages_v2',
+      chats: 'llmui_chats_v3',
+      activeChat: 'llmui_active_chat',
       sessionCost: 'llmui_session_cost'
     };
 
+    let chats = [];
+    let activeChat = null;
     let sessionTotalCost = 0;
+
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    function createNewChat() {
+      const chat = {
+        id: generateId(),
+        title: 'New Chat',
+        messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+        createdAt: Date.now()
+      };
+      chats.unshift(chat);
+      saveChats();
+      switchToChat(chat.id);
+      renderChatList();
+    }
+
+    function deleteChat(id) {
+      if (!confirm('Delete this chat?')) return;
+      chats = chats.filter(c => c.id !== id);
+      saveChats();
+      if (activeChat?.id === id) {
+        if (chats.length > 0) {
+          switchToChat(chats[0].id);
+        } else {
+          createNewChat();
+        }
+      }
+      renderChatList();
+    }
+
+    function switchToChat(id) {
+      activeChat = chats.find(c => c.id === id);
+      if (!activeChat) {
+        createNewChat();
+        return;
+      }
+      localStorage.setItem(LS.activeChat, id);
+      renderChat();
+      renderChatList();
+    }
+
+    function saveChats() {
+      localStorage.setItem(LS.chats, JSON.stringify(chats));
+    }
+
+    function loadChats() {
+      try {
+        const saved = localStorage.getItem(LS.chats);
+        if (saved) {
+          chats = JSON.parse(saved);
+        }
+      } catch {}
+
+      if (chats.length === 0) {
+        createNewChat();
+        return;
+      }
+
+      const lastActiveId = localStorage.getItem(LS.activeChat);
+      if (lastActiveId && chats.find(c => c.id === lastActiveId)) {
+        switchToChat(lastActiveId);
+      } else {
+        switchToChat(chats[0].id);
+      }
+    }
+
+    function renderChatList() {
+      els.chatList.innerHTML = '';
+      for (const chat of chats) {
+        const div = document.createElement('div');
+        div.className = 'chatItem' + (activeChat?.id === chat.id ? ' active' : '');
+        
+        const title = document.createElement('div');
+        title.className = 'chatTitle';
+        title.textContent = chat.title;
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'chatDelete';
+        deleteBtn.textContent = '×';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteChat(chat.id);
+        };
+
+        div.appendChild(title);
+        div.appendChild(deleteBtn);
+        div.onclick = () => switchToChat(chat.id);
+        
+        els.chatList.appendChild(div);
+      }
+    }
+
+    function updateChatTitle() {
+      if (!activeChat || activeChat.messages.length < 3) return;
+      const firstUser = activeChat.messages.find(m => m.role === 'user');
+      if (firstUser && activeChat.title === 'New Chat') {
+        activeChat.title = firstUser.content.slice(0, 30) + (firstUser.content.length > 30 ? '...' : '');
+        saveChats();
+        renderChatList();
+      }
+    }
+
+    function renderChat() {
+      els.chat.innerHTML = '';
+      if (!activeChat) return;
+
+      for (let i = 0; i < activeChat.messages.length; i++) {
+        const m = activeChat.messages[i];
+        if (m.role === 'system') continue;
+        
+        if (m.role === 'meta') {
+          const div = document.createElement('div');
+          div.className = 'msg meta';
+          div.textContent = m.content;
+          els.chat.appendChild(div);
+          continue;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = `msgWrapper ${m.role}`;
+
+        const msg = document.createElement('div');
+        msg.className = `msg ${m.role}`;
+        msg.textContent = m.content;
+
+        const actions = document.createElement('div');
+        actions.className = 'msgActions';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'msgAction';
+        copyBtn.textContent = 'Copy';
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(m.content);
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => copyBtn.textContent = 'Copy', 1000);
+        };
+        actions.appendChild(copyBtn);
+
+        if (m.role === 'user') {
+          const editBtn = document.createElement('button');
+          editBtn.className = 'msgAction';
+          editBtn.textContent = 'Edit';
+          editBtn.onclick = () => editMessage(i);
+          actions.appendChild(editBtn);
+        }
+
+        if (m.role === 'assistant' && i === activeChat.messages.length - 1) {
+          const regenBtn = document.createElement('button');
+          regenBtn.className = 'msgAction';
+          regenBtn.textContent = 'Regenerate';
+          regenBtn.onclick = () => regenerateResponse();
+          actions.appendChild(regenBtn);
+        }
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'msgAction';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = () => deleteMessage(i);
+        actions.appendChild(delBtn);
+
+        wrapper.appendChild(msg);
+        wrapper.appendChild(actions);
+        els.chat.appendChild(wrapper);
+      }
+
+      els.chat.scrollTop = els.chat.scrollHeight;
+    }
+
+    function editMessage(index) {
+      const msg = activeChat.messages[index];
+      if (msg.role !== 'user') return;
+
+      const newContent = prompt('Edit message:', msg.content);
+      if (!newContent || newContent === msg.content) return;
+
+      // Remove everything after this message
+      activeChat.messages = activeChat.messages.slice(0, index + 1);
+      activeChat.messages[index].content = newContent;
+      
+      saveChats();
+      renderChat();
+      
+      // Auto-regenerate response
+      sendMessage(newContent, true);
+    }
+
+    function deleteMessage(index) {
+      activeChat.messages.splice(index, 1);
+      saveChats();
+      renderChat();
+    }
+
+    function regenerateResponse() {
+      if (!activeChat || activeChat.messages.length < 2) return;
+      
+      // Remove last assistant message
+      if (activeChat.messages[activeChat.messages.length - 1].role === 'assistant') {
+        activeChat.messages.pop();
+      }
+      
+      saveChats();
+      renderChat();
+      
+      // Resend last user message
+      const lastUser = [...activeChat.messages].reverse().find(m => m.role === 'user');
+      if (lastUser) {
+        sendMessage(lastUser.content, true);
+      }
+    }
+
+    function addMessage(role, content) {
+      if (!activeChat) return;
+      activeChat.messages.push({ role, content });
+      saveChats();
+      updateChatTitle();
+      renderChat();
+    }
 
     function maskKey(k) {
       if (!k) return '';
@@ -409,7 +785,6 @@
     }
 
     function updateCostDisplay(lastCost = null, tokens = null) {
-      // Force valid numbers with fallback to 0
       const validSessionCost = isNaN(sessionTotalCost) ? 0 : sessionTotalCost;
       sessionTotalCost = validSessionCost;
       
@@ -429,29 +804,17 @@
     }
 
     function calculateCost(provider, model, inputTokens, outputTokens) {
-      // Ensure we have valid numbers
       const validInput = isNaN(inputTokens) ? 0 : inputTokens;
       const validOutput = isNaN(outputTokens) ? 0 : outputTokens;
       
       const pricing = PRICING[provider]?.[model];
-      if (!pricing) {
-        console.warn(`No pricing data for ${provider}/${model}`);
-        return 0;
-      }
+      if (!pricing) return 0;
       
       const inputCost = (validInput / 1000000) * pricing.input;
       const outputCost = (validOutput / 1000000) * pricing.output;
       const total = inputCost + outputCost;
       
       return isNaN(total) ? 0 : total;
-    }
-
-    function addMsg(role, text) {
-      const div = document.createElement('div');
-      div.className = `msg ${role}`;
-      div.textContent = text;
-      els.chat.appendChild(div);
-      els.chat.scrollTop = els.chat.scrollHeight;
     }
 
     function populateModels() {
@@ -488,26 +851,12 @@
       els.modelHint.textContent = effectiveModel();
       els.providerHint.textContent = provider;
 
-      // Load session cost with validation
       const savedCost = localStorage.getItem(LS.sessionCost);
       const parsedCost = parseFloat(savedCost);
       sessionTotalCost = isNaN(parsedCost) ? 0 : parsedCost;
       updateCostDisplay();
 
-      const saved = localStorage.getItem(LS.messages);
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          if (data.provider === provider && Array.isArray(data.messages) && data.messages.length) {
-            addMsg('meta', 'restored previous session');
-            for (const m of data.messages) {
-              if (!m || typeof m !== 'object') continue;
-              if (m.role === 'user') addMsg('user', m.content || '');
-              if (m.role === 'assistant') addMsg('assistant', m.content || '');
-            }
-          }
-        } catch {}
-      }
+      loadChats();
     }
 
     function saveState() {
@@ -522,37 +871,21 @@
       els.providerHint.textContent = provider;
     }
 
-    function clearChat() {
-      els.chat.innerHTML = '';
-      addMsg('assistant', 'Chat cleared. Ready when you are.');
-      localStorage.removeItem(LS.messages);
-      messages = [{ role: 'system', content: 'You are a helpful assistant.' }];
-      setStatus('idle', true);
-    }
-
     function resetCost() {
       sessionTotalCost = 0;
       localStorage.setItem(LS.sessionCost, '0');
       updateCostDisplay(0, 0);
-      addMsg('meta', 'Cost tracker reset to $0.00');
+      addMessage('meta', 'Cost tracker reset to $0.00');
     }
 
     function effectiveModel() {
       return (els.customModel.value || '').trim() || els.model.value;
     }
 
-    let messages = [{ role: 'system', content: 'You are a helpful assistant.' }];
-
-    function persistMessages() {
-      const provider = els.provider.value;
-      const toSave = messages.filter(m => m.role === 'user' || m.role === 'assistant');
-      localStorage.setItem(LS.messages, JSON.stringify({ provider, messages: toSave }));
-    }
-
-    async function sendMessage() {
+    async function sendMessage(textOverride = null, skipAddUser = false) {
       const provider = els.provider.value;
       const apiKey = els.apiKey.value.trim();
-      const text = els.input.value.trim();
+      const text = textOverride || els.input.value.trim();
       const model = effectiveModel();
 
       if (!text) return;
@@ -565,11 +898,11 @@
         return;
       }
 
-      addMsg('user', text);
-      messages.push({ role: 'user', content: text });
-      persistMessages();
+      if (!skipAddUser) {
+        addMessage('user', text);
+        els.input.value = '';
+      }
 
-      els.input.value = '';
       els.send.disabled = true;
       els.send2.disabled = true;
       setStatus('thinking…', true);
@@ -578,20 +911,17 @@
         let response, usage;
 
         if (provider === 'openai') {
-          const result = await sendOpenAI(apiKey, model, messages);
+          const result = await sendOpenAI(apiKey, model, activeChat.messages);
           response = result.content;
           usage = result.usage;
         } else if (provider === 'gemini') {
-          const result = await sendGemini(apiKey, model, messages);
+          const result = await sendGemini(apiKey, model, activeChat.messages);
           response = result.content;
           usage = result.usage;
         }
 
-        addMsg('assistant', response || '[empty response]');
-        messages.push({ role: 'assistant', content: response || '' });
-        persistMessages();
+        addMessage('assistant', response || '[empty response]');
 
-        // Calculate and update cost with validation
         if (usage) {
           const inputTokens = usage.input || 0;
           const outputTokens = usage.output || 0;
@@ -602,15 +932,13 @@
           updateCostDisplay(cost, totalTokens);
           
           if (cost > 0 || totalTokens > 0) {
-            addMsg('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
-          } else {
-            addMsg('meta', `${totalTokens.toLocaleString()} tokens (free or no pricing data)`);
+            addMessage('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
           }
         }
 
         setStatus('done', true);
       } catch (e) {
-        addMsg('assistant', `Error: ${e.message || String(e)}`);
+        addMessage('assistant', `Error: ${e.message || String(e)}`);
         setStatus('error', false);
       } finally {
         els.send.disabled = false;
@@ -644,7 +972,7 @@
 
     async function sendGemini(apiKey, model, messages) {
       const systemMsg = messages.find(m => m.role === 'system');
-      const chatMsgs = messages.filter(m => m.role !== 'system');
+      const chatMsgs = messages.filter(m => m.role !== 'system' && m.role !== 'meta');
 
       const contents = chatMsgs.map(m => ({
         role: m.role === 'assistant' ? 'model' : 'user',
@@ -682,15 +1010,15 @@
       };
     }
 
+    // Event Listeners
+    els.toggleSidebar.onclick = () => els.sidebar.classList.toggle('hidden');
+    els.newChat.onclick = createNewChat;
     els.provider.addEventListener('change', () => {
       const provider = els.provider.value;
       const savedKey = localStorage.getItem(LS.keys[provider]) || '';
       els.apiKey.value = savedKey;
       populateModels();
       saveState();
-      
-      messages = [{ role: 'system', content: 'You are a helpful assistant.' }];
-      localStorage.removeItem(LS.messages);
     });
 
     els.apiKey.addEventListener('input', saveState);
@@ -698,9 +1026,8 @@
     els.customModel.addEventListener('input', saveState);
 
     els.resetCost.addEventListener('click', resetCost);
-    els.clearChat.addEventListener('click', clearChat);
-    els.send.addEventListener('click', sendMessage);
-    els.send2.addEventListener('click', sendMessage);
+    els.send.addEventListener('click', () => sendMessage());
+    els.send2.addEventListener('click', () => sendMessage());
 
     els.input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -714,4 +1041,3 @@
   </script>
 </body>
 </html>
-
