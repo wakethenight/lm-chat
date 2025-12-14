@@ -510,7 +510,7 @@
     </main>
   </div>
 
-  <script>
+    <script>
     const PRICING = {
       openai: {
         'gpt-4.1': { input: 15.00, output: 60.00 },
@@ -767,12 +767,12 @@
         editBtn.onclick = () => startEdit(i);
         actions.appendChild(editBtn);
 
-        // Regenerate button ONLY on the last assistant message
-        if (m.role === 'assistant' && i === activeChat.messages.length - 1) {
+        // Regenerate button on ALL assistant messages
+        if (m.role === 'assistant') {
           const regenBtn = document.createElement('button');
           regenBtn.className = 'msgAction';
           regenBtn.textContent = 'Regenerate';
-          regenBtn.onclick = () => regenerateResponse();
+          regenBtn.onclick = () => regenerateResponse(i);
           actions.appendChild(regenBtn);
         }
 
@@ -837,27 +837,32 @@
       renderChat();
     }
 
-    function regenerateResponse() {
-      if (!activeChat || activeChat.messages.length < 2) return;
+    function regenerateResponse(index) {
+      if (!activeChat) return;
       
-      // Remove last assistant message
-      if (activeChat.messages[activeChat.messages.length - 1].role === 'assistant') {
-        activeChat.messages.pop();
+      // Find the user message that prompted this response
+      let userMessageIndex = -1;
+      for (let i = index - 1; i >= 0; i--) {
+        if (activeChat.messages[i].role === 'user') {
+          userMessageIndex = i;
+          break;
+        }
       }
       
-      // Also remove the meta message if there is one
-      if (activeChat.messages[activeChat.messages.length - 1]?.role === 'meta') {
-        activeChat.messages.pop();
-      }
+      if (userMessageIndex === -1) return;
+      
+      // Remove this assistant message and any meta message after it, plus everything after
+      activeChat.messages.splice(index, activeChat.messages.length - index);
       
       saveChats();
       renderChat();
       
-      // Resend last user message
-      const lastUser = [...activeChat.messages].reverse().find(m => m.role === 'user');
-      if (lastUser) {
-        sendMessage(lastUser.content, true);
-      }
+      // Get all messages up to and including the user message
+      const messagesToSend = activeChat.messages.slice(0, userMessageIndex + 1);
+      const userMessage = activeChat.messages[userMessageIndex].content;
+      
+      // Regenerate response
+      sendMessageFromHistory(messagesToSend, userMessage);
     }
 
     function addMessage(role, content) {
@@ -975,6 +980,63 @@
 
     function effectiveModel() {
       return (els.customModel.value || '').trim() || els.model.value;
+    }
+
+    async function sendMessageFromHistory(messagesToSend, userText) {
+      const provider = els.provider.value;
+      const apiKey = els.apiKey.value.trim();
+      const model = effectiveModel();
+
+      if (!apiKey) {
+        setStatus('missing api key', false);
+        return;
+      }
+      if (!model) {
+        setStatus('missing model', false);
+        return;
+      }
+
+      els.send.disabled = true;
+      els.send2.disabled = true;
+      setStatus('thinking…', true);
+
+      try {
+        let response, usage;
+
+        if (provider === 'openai') {
+          const result = await sendOpenAI(apiKey, model, messagesToSend);
+          response = result.content;
+          usage = result.usage;
+        } else if (provider === 'gemini') {
+          const result = await sendGemini(apiKey, model, messagesToSend);
+          response = result.content;
+          usage = result.usage;
+        }
+
+        addMessage('assistant', response || '[empty response]');
+
+        if (usage) {
+          const inputTokens = usage.input || 0;
+          const outputTokens = usage.output || 0;
+          const cost = calculateCost(provider, model, inputTokens, outputTokens);
+          
+          sessionTotalCost += cost;
+          const totalTokens = inputTokens + outputTokens;
+          updateCostDisplay(cost, totalTokens);
+          
+          if (cost > 0 || totalTokens > 0) {
+            addMessage('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
+          }
+        }
+
+        setStatus('done', true);
+      } catch (e) {
+        addMessage('assistant', `Error: ${e.message || String(e)}`);
+        setStatus('error', false);
+      } finally {
+        els.send.disabled = false;
+        els.send2.disabled = false;
+      }
     }
 
     async function sendMessage(textOverride = null, skipAddUser = false) {
