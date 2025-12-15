@@ -17,6 +17,7 @@
       --danger: #ff4d4d;
       --ok: #33d17a;
       --warning: #ffa500;
+      --branch: #ff8c00;
       --bubbleUser: #7d0fd6;
       --bubbleAI: #2a3142;
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -88,6 +89,7 @@
       align-items: center;
       gap: 8px;
       transition: all 0.2s;
+      position: relative;
     }
 
     .chatItem:hover {
@@ -98,6 +100,21 @@
     .chatItem.active {
       background: rgba(125,15,214,0.25);
       border-color: rgba(125,15,214,0.6);
+    }
+
+    .chatItem.branched::before {
+      content: '⎇';
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--branch);
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .chatItem.branched {
+      padding-left: 24px;
     }
 
     .chatTitle {
@@ -375,6 +392,16 @@
       color: var(--text);
     }
 
+    .msgAction.branch {
+      border-color: rgba(255,140,0,0.35);
+      color: var(--branch);
+    }
+
+    .msgAction.branch:hover {
+      background: rgba(255,140,0,0.25);
+      color: var(--branch);
+    }
+
     .composer {
       border-top: 1px solid var(--border);
       padding: 12px;
@@ -474,7 +501,7 @@
       }
 
       .msgActions {
-        opacity: 1; /* Always show on mobile */
+        opacity: 1;
       }
 
       .msgAction {
@@ -509,11 +536,10 @@
       }
 
       .chatDelete {
-        opacity: 1; /* Always show on mobile */
+        opacity: 1;
       }
     }
 
-    /* Small mobile (< 400px) */
     @media (max-width: 400px) {
       #sidebar {
         width: 100%;
@@ -534,7 +560,7 @@
       }
 
       input[type="password"], input[type="text"], select, textarea {
-        font-size: 16px; /* Prevents zoom on iOS */
+        font-size: 16px;
       }
 
       .status {
@@ -624,7 +650,7 @@
     </main>
   </div>
 
-  <script>
+ <script>
     const PRICING = {
       openai: {
         'gpt-4.1': { input: 15.00, output: 60.00 },
@@ -663,6 +689,7 @@
         'gemini-1.5-flash-8b']
     };
 
+
     const els = {
       sidebar: document.getElementById('sidebar'),
       toggleSidebar: document.getElementById('toggleSidebar'),
@@ -691,7 +718,7 @@
       keys: { openai: 'llmui_openai_key', gemini: 'llmui_gemini_key' },
       model: 'llmui_model_v2',
       customModel: 'llmui_custom_model',
-      chats: 'llmui_chats_v3',
+      chats: 'llmui_chats_v4',
       activeChat: 'llmui_active_chat',
       sessionCost: 'llmui_session_cost'
     };
@@ -710,12 +737,45 @@
         id: generateId(),
         title: 'New Chat',
         messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        branchedFrom: null
       };
       chats.unshift(chat);
       saveChats();
       switchToChat(chat.id);
       renderChatList();
+    }
+
+    function branchChat(upToIndex) {
+      if (!activeChat) return;
+      
+      // Create new chat with messages up to and including the specified index
+      const branchedMessages = activeChat.messages.slice(0, upToIndex + 1);
+      
+      // Find a good title - use the last user message if possible
+      let branchTitle = 'Branched Chat';
+      for (let i = branchedMessages.length - 1; i >= 0; i--) {
+        if (branchedMessages[i].role === 'user') {
+          branchTitle = '⎇ ' + branchedMessages[i].content.slice(0, 27) + '...';
+          break;
+        }
+      }
+      
+      const newChat = {
+        id: generateId(),
+        title: branchTitle,
+        messages: branchedMessages,
+        createdAt: Date.now(),
+        branchedFrom: activeChat.id
+      };
+      
+      chats.unshift(newChat);
+      saveChats();
+      switchToChat(newChat.id);
+      renderChatList();
+      
+      // Add a meta message to indicate this is a branch
+      addMessage('meta', `Branched from previous conversation at message ${upToIndex}`);
     }
 
     function deleteChat(id) {
@@ -777,7 +837,7 @@
       els.chatList.innerHTML = '';
       for (const chat of chats) {
         const div = document.createElement('div');
-        div.className = 'chatItem' + (activeChat?.id === chat.id ? ' active' : '');
+        div.className = 'chatItem' + (activeChat?.id === chat.id ? ' active' : '') + (chat.branchedFrom ? ' branched' : '');
         
         const title = document.createElement('div');
         title.className = 'chatTitle';
@@ -857,7 +917,6 @@
           wrapper.appendChild(actionsDiv);
           els.chat.appendChild(wrapper);
           
-          // Focus the textarea
           setTimeout(() => textarea.focus(), 0);
           continue;
         }
@@ -869,6 +928,13 @@
         const actions = document.createElement('div');
         actions.className = 'msgActions';
 
+        // Branch button - shows on ALL messages (user and assistant)
+        const branchBtn = document.createElement('button');
+        branchBtn.className = 'msgAction branch';
+        branchBtn.textContent = '⎇ Branch';
+        branchBtn.onclick = () => branchChat(i);
+        actions.appendChild(branchBtn);
+
         const copyBtn = document.createElement('button');
         copyBtn.className = 'msgAction';
         copyBtn.textContent = 'Copy';
@@ -879,14 +945,12 @@
         };
         actions.appendChild(copyBtn);
 
-        // Edit button for BOTH user and assistant messages
         const editBtn = document.createElement('button');
         editBtn.className = 'msgAction';
         editBtn.textContent = 'Edit';
         editBtn.onclick = () => startEdit(i);
         actions.appendChild(editBtn);
 
-        // Regenerate button on ALL assistant messages
         if (m.role === 'assistant') {
           const regenBtn = document.createElement('button');
           regenBtn.className = 'msgAction';
@@ -935,7 +999,6 @@
 
       msg.content = newContent;
       
-      // If editing a user message, remove everything after it and regenerate
       if (msg.role === 'user') {
         activeChat.messages = activeChat.messages.slice(0, index + 1);
         saveChats();
@@ -943,7 +1006,6 @@
         renderChat();
         sendMessage(newContent, true);
       } else {
-        // Just save the edit for assistant messages
         saveChats();
         editingMessageIndex = null;
         renderChat();
@@ -959,7 +1021,6 @@
     function regenerateResponse(index) {
       if (!activeChat) return;
       
-      // Find the user message that prompted this response
       let userMessageIndex = -1;
       for (let i = index - 1; i >= 0; i--) {
         if (activeChat.messages[i].role === 'user') {
@@ -970,17 +1031,14 @@
       
       if (userMessageIndex === -1) return;
       
-      // Remove this assistant message and any meta message after it, plus everything after
       activeChat.messages.splice(index, activeChat.messages.length - index);
       
       saveChats();
       renderChat();
       
-      // Get all messages up to and including the user message
       const messagesToSend = activeChat.messages.slice(0, userMessageIndex + 1);
       const userMessage = activeChat.messages[userMessageIndex].content;
       
-      // Regenerate response
       sendMessageFromHistory(messagesToSend, userMessage);
     }
 
@@ -1077,7 +1135,6 @@
 
       loadChats();
       
-      // Start with sidebar hidden on mobile
       if (window.innerWidth <= 768) {
         els.sidebar.classList.add('hidden');
       }
@@ -1291,7 +1348,6 @@
       };
     }
 
-    // Event Listeners
     els.toggleSidebar.onclick = () => els.sidebar.classList.toggle('hidden');
     els.newChat.onclick = createNewChat;
     els.provider.addEventListener('change', () => {
