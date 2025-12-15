@@ -149,6 +149,7 @@
       cursor: pointer;
       color: var(--text);
       font-size: 18px;
+      line-height: 1;
     }
 
     header {
@@ -163,7 +164,7 @@
 
     .row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 10px;
     }
 
@@ -303,7 +304,7 @@
 
     .msg.meta {
       align-self: center;
-      max-width: 90%;
+      max-width: 100%;
       font-family: var(--mono);
       font-size: 11px;
       color: var(--muted);
@@ -340,7 +341,7 @@
 
     .editActions button {
       padding: 6px 12px;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     .msgActions {
@@ -434,31 +435,30 @@
       flex-wrap: wrap;
     }
 
-    /* Mobile-specific styles */
+    /* Mobile Optimizations */
     @media (max-width: 768px) {
       #sidebar {
         position: fixed;
-        height: 100vh;
-        width: 80%;
-        max-width: 300px;
-        box-shadow: 2px 0 20px rgba(0,0,0,0.5);
+        height: 100%;
+        width: 280px;
+      }
+
+      #sidebar.hidden {
+        transform: translateX(-100%);
+      }
+
+      header {
+        padding: 60px 12px 12px 12px;
       }
 
       #toggleSidebar {
         top: 8px;
         left: 8px;
         padding: 10px 14px;
-        font-size: 20px;
-      }
-
-      header {
-        padding: 8px 8px 8px 56px;
-        gap: 8px;
       }
 
       .row {
         grid-template-columns: 1fr;
-        gap: 8px;
       }
 
       .btnRow {
@@ -469,49 +469,28 @@
         flex: 1;
       }
 
-      #chat {
-        padding: 12px 8px;
-      }
-
       .msgWrapper {
         max-width: 90%;
       }
 
-      .msg {
-        font-size: 14px;
-        padding: 8px 10px;
-      }
-
       .msgActions {
         opacity: 1; /* Always show on mobile */
-        font-size: 11px;
       }
 
       .msgAction {
-        padding: 6px 8px;
         font-size: 11px;
+        padding: 4px 8px;
       }
 
       .composer {
-        padding: 8px;
-        gap: 8px;
+        grid-template-columns: 1fr;
       }
 
       .composer button {
-        padding: 12px;
-      }
-
-      textarea {
-        min-height: 48px;
-        font-size: 16px; /* Prevents zoom on iOS */
-      }
-
-      input[type="password"], input[type="text"], select {
-        font-size: 16px; /* Prevents zoom on iOS */
+        width: 100%;
       }
 
       .status {
-        padding: 6px 8px;
         font-size: 10px;
         gap: 6px;
       }
@@ -525,47 +504,48 @@
         gap: 6px;
       }
 
-      /* Make hint text smaller on mobile */
-      .hint {
-        font-size: 10px;
+      #chat {
+        padding: 12px 8px;
       }
 
-      label {
-        font-size: 11px;
+      .chatDelete {
+        opacity: 1; /* Always show on mobile */
       }
     }
 
-    /* Extra small devices */
-    @media (max-width: 480px) {
+    /* Small mobile (< 400px) */
+    @media (max-width: 400px) {
       #sidebar {
-        width: 85%;
+        width: 100%;
       }
 
       .msgWrapper {
         max-width: 95%;
       }
 
-      .row {
-        gap: 6px;
+      .msg {
+        font-size: 13px;
+        padding: 8px 10px;
       }
 
-      #chat {
-        padding: 10px 6px;
-      }
-    }
-
-    /* Landscape mobile */
-    @media (max-width: 768px) and (orientation: landscape) {
-      header {
-        padding: 6px 6px 6px 50px;
+      button {
+        padding: 8px 12px;
+        font-size: 13px;
       }
 
-      #chat {
-        padding: 8px 6px;
+      input[type="password"], input[type="text"], select, textarea {
+        font-size: 16px; /* Prevents zoom on iOS */
       }
 
-      .composer {
-        padding: 6px;
+      .status {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .costTracker {
+        width: 100%;
+        justify-content: space-between;
       }
     }
   </style>
@@ -636,9 +616,9 @@
       <div class="status">
         <div class="pill" id="statusLeft">idle</div>
         <div class="costTracker">
-          <div class="pill warn" id="sessionCost">$0.00</div>
-          <div class="pill" id="lastCost">Last: $0.00</div>
-          <div class="pill" id="tokenCount">0 tok</div>
+          <div class="pill warn" id="sessionCost">Session: $0.0000</div>
+          <div class="pill" id="lastCost">Last: $0.0000</div>
+          <div class="pill" id="tokenCount">Tokens: 0</div>
         </div>
       </div>
     </main>
@@ -681,11 +661,6 @@
         'gemini-1.5-pro',
         'gemini-1.5-flash',
         'gemini-1.5-flash-8b']
-    };
-
-    const PROVIDER_MODELS = {
-      openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini'],
-      gemini: ['gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-2.0-flash-thinking-exp-1219', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.5-flash-8b']
     };
 
     const els = {
@@ -741,11 +716,6 @@
       saveChats();
       switchToChat(chat.id);
       renderChatList();
-      
-      // Close sidebar on mobile after creating chat
-      if (window.innerWidth <= 768) {
-        els.sidebar.classList.add('hidden');
-      }
     }
 
     function deleteChat(id) {
@@ -772,7 +742,7 @@
       renderChat();
       renderChatList();
       
-      // Close sidebar on mobile after switching
+      // Auto-hide sidebar on mobile after selecting chat
       if (window.innerWidth <= 768) {
         els.sidebar.classList.add('hidden');
       }
@@ -858,6 +828,7 @@
         const wrapper = document.createElement('div');
         wrapper.className = `msgWrapper ${m.role}`;
 
+        // Check if this message is being edited
         if (editingMessageIndex === i) {
           const editDiv = document.createElement('div');
           editDiv.className = 'msg editing';
@@ -886,6 +857,7 @@
           wrapper.appendChild(actionsDiv);
           els.chat.appendChild(wrapper);
           
+          // Focus the textarea
           setTimeout(() => textarea.focus(), 0);
           continue;
         }
@@ -902,28 +874,30 @@
         copyBtn.textContent = 'Copy';
         copyBtn.onclick = () => {
           navigator.clipboard.writeText(m.content);
-          copyBtn.textContent = '✓';
+          copyBtn.textContent = 'Copied!';
           setTimeout(() => copyBtn.textContent = 'Copy', 1000);
         };
         actions.appendChild(copyBtn);
 
+        // Edit button for BOTH user and assistant messages
         const editBtn = document.createElement('button');
         editBtn.className = 'msgAction';
         editBtn.textContent = 'Edit';
         editBtn.onclick = () => startEdit(i);
         actions.appendChild(editBtn);
 
+        // Regenerate button on ALL assistant messages
         if (m.role === 'assistant') {
           const regenBtn = document.createElement('button');
           regenBtn.className = 'msgAction';
-          regenBtn.textContent = 'Regen';
+          regenBtn.textContent = 'Regenerate';
           regenBtn.onclick = () => regenerateResponse(i);
           actions.appendChild(regenBtn);
         }
 
         const delBtn = document.createElement('button');
         delBtn.className = 'msgAction';
-        delBtn.textContent = 'Del';
+        delBtn.textContent = 'Delete';
         delBtn.onclick = () => deleteMessage(i);
         actions.appendChild(delBtn);
 
@@ -961,6 +935,7 @@
 
       msg.content = newContent;
       
+      // If editing a user message, remove everything after it and regenerate
       if (msg.role === 'user') {
         activeChat.messages = activeChat.messages.slice(0, index + 1);
         saveChats();
@@ -968,6 +943,7 @@
         renderChat();
         sendMessage(newContent, true);
       } else {
+        // Just save the edit for assistant messages
         saveChats();
         editingMessageIndex = null;
         renderChat();
@@ -983,6 +959,7 @@
     function regenerateResponse(index) {
       if (!activeChat) return;
       
+      // Find the user message that prompted this response
       let userMessageIndex = -1;
       for (let i = index - 1; i >= 0; i--) {
         if (activeChat.messages[i].role === 'user') {
@@ -993,14 +970,17 @@
       
       if (userMessageIndex === -1) return;
       
+      // Remove this assistant message and any meta message after it, plus everything after
       activeChat.messages.splice(index, activeChat.messages.length - index);
       
       saveChats();
       renderChat();
       
+      // Get all messages up to and including the user message
       const messagesToSend = activeChat.messages.slice(0, userMessageIndex + 1);
       const userMessage = activeChat.messages[userMessageIndex].content;
       
+      // Regenerate response
       sendMessageFromHistory(messagesToSend, userMessage);
     }
 
@@ -1014,7 +994,7 @@
 
     function maskKey(k) {
       if (!k) return '';
-      if (k.length <= 10) return 'set';
+      if (k.length <= 10) return 'key set';
       return `${k.slice(0, 3)}…${k.slice(-4)}`;
     }
 
@@ -1027,7 +1007,7 @@
       const validSessionCost = isNaN(sessionTotalCost) ? 0 : sessionTotalCost;
       sessionTotalCost = validSessionCost;
       
-      els.sessionCost.textContent = `$${validSessionCost.toFixed(4)}`;
+      els.sessionCost.textContent = `Session: $${validSessionCost.toFixed(4)}`;
       
       if (lastCost !== null) {
         const validLastCost = isNaN(lastCost) ? 0 : lastCost;
@@ -1036,7 +1016,7 @@
       
       if (tokens !== null) {
         const validTokens = isNaN(tokens) ? 0 : tokens;
-        els.tokenCount.textContent = `${validTokens.toLocaleString()} tok`;
+        els.tokenCount.textContent = `Tokens: ${validTokens.toLocaleString()}`;
       }
       
       localStorage.setItem(LS.sessionCost, validSessionCost.toString());
@@ -1119,7 +1099,7 @@
       sessionTotalCost = 0;
       localStorage.setItem(LS.sessionCost, '0');
       updateCostDisplay(0, 0);
-      addMessage('meta', 'Cost reset');
+      addMessage('meta', 'Cost tracker reset to $0.00');
     }
 
     function effectiveModel() {
@@ -1132,11 +1112,11 @@
       const model = effectiveModel();
 
       if (!apiKey) {
-        setStatus('no key', false);
+        setStatus('missing api key', false);
         return;
       }
       if (!model) {
-        setStatus('no model', false);
+        setStatus('missing model', false);
         return;
       }
 
@@ -1157,7 +1137,7 @@
           usage = result.usage;
         }
 
-        addMessage('assistant', response || '[empty]');
+        addMessage('assistant', response || '[empty response]');
 
         if (usage) {
           const inputTokens = usage.input || 0;
@@ -1169,7 +1149,7 @@
           updateCostDisplay(cost, totalTokens);
           
           if (cost > 0 || totalTokens > 0) {
-            addMessage('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tok | $${cost.toFixed(4)}`);
+            addMessage('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
           }
         }
 
@@ -1191,11 +1171,11 @@
 
       if (!text) return;
       if (!apiKey) {
-        setStatus('no key', false);
+        setStatus('missing api key', false);
         return;
       }
       if (!model) {
-        setStatus('no model', false);
+        setStatus('missing model', false);
         return;
       }
 
@@ -1221,7 +1201,7 @@
           usage = result.usage;
         }
 
-        addMessage('assistant', response || '[empty]');
+        addMessage('assistant', response || '[empty response]');
 
         if (usage) {
           const inputTokens = usage.input || 0;
@@ -1233,7 +1213,7 @@
           updateCostDisplay(cost, totalTokens);
           
           if (cost > 0 || totalTokens > 0) {
-            addMessage('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tok | $${cost.toFixed(4)}`);
+            addMessage('meta', `${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out = ${totalTokens.toLocaleString()} tokens | $${cost.toFixed(4)}`);
           }
         }
 
